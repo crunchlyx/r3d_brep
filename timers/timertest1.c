@@ -1,17 +1,16 @@
 
-/* A simple timing program, giving the time elapsed in ms to run a program a given amount of times defined by the variable REP_TIMES.
+/* 
+A simple timing program, giving the time elapsed in ms to run a program a given amount of times defined by the variable REP_TIMES.
 */
 
 #include <time.h>
 #include <stdio.h>
 
-
 //The amount of times the program will be performed.
 #define REP_TIMES 1000000000
 
-/* A simple program to test the timer. Returns the some of all elements of a small array A.
-*/
-int A[] = {1,2,4,5};
+// A simple program to test the timer. Returns the sum of all elements of a small array.
+
 int addElements(int arry[]){
 	int sum;
 	int size = sizeof(arry) / sizeof(arry)[0];
@@ -25,10 +24,10 @@ int addElements(int arry[]){
 int main(){
     clock_t start = clock();
 	int i =0;
-	int j=0;
+	int A[] = {1,2,3,4,5};
 	for (i; i<REP_TIMES; i++)
 		addElements(A);
-		//Currently has the testimg program. Add executable code here!
+		// Currently has the testing program. Add executable code here!
     clock_t stop = clock();
     double elapsed = (double)(stop - start) * 1000 / CLOCKS_PER_SEC;
     printf("Time elapsed in ms: %f\n", elapsed);
