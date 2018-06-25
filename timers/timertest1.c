@@ -6,8 +6,9 @@ A simple timing program, giving the time elapsed in ms to run a program a given 
 #include <time.h>
 #include <stdio.h>
 
-//The amount of times the program will be performed.
-#define REP_TIMES 1000000000
+
+//The amount of times the program will be performed. 
+#define REP_TIMES 1000000
 
 // A simple program to test the timer. Returns the sum of all elements of a small array.
 
@@ -20,14 +21,18 @@ int addElements(int arry[]){
 	return sum; 
 }	
 
+//int A[] = {1,2,3,4,5};
+
+
+
+
 //The actual timer, elapsed time given in ms.
 int main(){
     clock_t start = clock();
-	int i =0;
-	int A[] = {1,2,3,4,5};
-	for (i; i<REP_TIMES; i++)
-		addElements(A);
-		// Currently has the testing program. Add executable code here!
+	for (int i = 0; i<REP_TIMES; i++)
+		{	
+		//code goes here
+		}
     clock_t stop = clock();
     double elapsed = (double)(stop - start) * 1000 / CLOCKS_PER_SEC;
     printf("Time elapsed in ms: %f\n", elapsed);
