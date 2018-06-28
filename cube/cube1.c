@@ -4,7 +4,7 @@
 #include <time.h>
 
 //The amount of times the program will be performed for timer.
-#define REP_TIMES 1000000
+#define REP_TIMES 1
 
 // A simple printer that prints all BREP information provided to it
 void printer(int faces, int* verts, int** faceindices)
@@ -34,7 +34,7 @@ int main(){
 	r3d_rvec3 verts[] = {
 		{0,0,0},{1,0,0},{1,1,0},{0,1,0},
 		{0,0,1},{1,0,1},{1,1,1},{0,1,1}}; //the vertices
-	int nverts = sizeof(verts)/sizeof(verts)[0];
+	int nverts = sizeof(verts)/sizeof(verts)[0]; // the number of vertices
 	
 	// the faces, holds the brep of each face
 	int f0[] = {2,6,5,1};
@@ -46,7 +46,7 @@ int main(){
 	int* faceinds[] = {f0,f1,f2,f3,f4,f5}; // the list of all faces as defined by the brep
 
 	r3d_poly cube; // the cube
-	r3d_plane planes[] = {{{1,0,0}, -0.5}}; // the planes
+	r3d_plane planes[] = {{{1,0,0}, -0.5}}; // the clipping planes
 	int nplanes = sizeof(planes) / sizeof(planes[0]); // number of clipping planes
 
 	// variables for clipping and converting to brep
@@ -55,12 +55,12 @@ int main(){
 	
 	//timer
     clock_t start = clock();
-	for (int i = 0; i<REP_TIMES; i++)
-		{
+	for (int i = 0; i<REP_TIMES; i++){
 		r3d_init_poly(&cube, verts, nverts, faceinds, nvertsperface, nfaces); 
 		r3d_clip(&cube, planes, nplanes);
 		r3d_init_brep(&cube, &cuberep, &numcomponents);
-		}
+	}
+
 	clock_t stop = clock();
     double elapsed = (double)(stop - start) * 1000 / CLOCKS_PER_SEC;
     printf("Time elapsed in ms: %f\n", elapsed);
