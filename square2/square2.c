@@ -97,10 +97,15 @@ int main() {
 	r2d_int nverts;
 	srand(time(0));
 
-	r2d_plane planes[] = {{{1,0}, -5.0}};
+	/*
+	FOR A SQUARE: {0,0},{1,0},{1,1},{0,1}
+	FOR A TRIANGLE: {0,0},{1,0},{0.45,1}
+	FOR A HEXAGON: {0,0},{1,0},{2,1},{1,2},{0,2},{-1,2}
+	FOR A DODECAGON: {0,0},{1,0},{3,1},{4,3},{4,4},{3,6},{1,7},{0,7},{-2,6},{-3,4},{-3,3},{-2,1}
+	FOR A NONCONVEX SHAPE: {0,0},{1,0},{0.45,0.5},{1,1},{0,1}*/
+	r2d_plane planes[] = {{{1,0}, -5.0}, {{0,1}, -5.0}};
 	int nplanes = sizeof(planes) / sizeof(planes[0]); // number of clipping planes
 
-	//r2d_rvec2 *randpoly = init_random_poly(&nverts);
 	r2d_rvec2 *randpoly = init_random_poly(&nverts);
 	info_poly(randpoly, nverts);
 	inplace_clip_poly(randpoly, &nverts, planes, nplanes);
