@@ -19,49 +19,41 @@
 void inplace_clip_poly(r2d_rvec2* verts, r2d_int *nverts, r2d_plane* planes, r2d_int nplanes) {
 
 	//The likely bound is 3/2nverts; not certain.
-	r2d_real sdists[*nverts], smin, smax, onv;
-	r2d_int clipped[MAX_VERTS];
+	r2d_real sdists[MAX_VERTS];
+	r2d_int index[MAX_VERTS], newind, oldind, vnext, onv;
 	
 	const r2d_real ZERO = 0.0;
 	
-	
 	for(int p = 0; p < nplanes; ++p) {
 		onv = *nverts;
-		smin = 1.0e30;
-		smax = -1.0e30;
-		memset(&clipped, 0, sizeof(clipped));
+		newind = 0;
+		oldind = onv;
 
 		for(int v = 0; v < onv; ++v) {
 			sdists[v] = planes[p].d + dot(verts[v], planes[p].n);
-			if(sdists[v] < smin) { smin = sdists[v]; } 
-			if(sdists[v] > smax) { smax = sdists[v]; }
-			printf("%f\n", sdists[v]);
-			if(sdists[v] < ZERO) { clipped[v] = 1; }
 		}
 
-		if(smin >= 0.0) continue;
-		if(smax <= 0.0) {
-			*nverts = 0;
-			return;
-		}
-		/*for(int v = 0; v < nverts; ++v) {
-			if (sdists[v] >= 0) {
-				newverts[lastavail] = verts[v];
-				lastavail++;
+		for(int v = 0; v < onv; ++v) {
+
+			if (sdists[v] >= 0){
+				index[newind++] = v;
 			}
-			int vnext = (v+1)%nverts;
+			vnext = (v+1)%onv;
+
 			if (sdists[v] * sdists[vnext] < ZERO) {
 				r2d_real if1 = sdists[vnext] / (sdists[vnext] - sdists[v]);
 				r2d_rvec2 newvert;
 				newvert.x = if1*verts[v].x + (1-if1)*verts[vnext].x;
 				newvert.y = if1*verts[v].y + (1-if1)*verts[vnext].y;
-				newverts[lastavail] = newvert;
-				lastavail++;
+				verts[oldind] = newvert;
+				index[newind++] = oldind;
+				oldind++;
 			}	
 		}
-		*finalnverts=lastavail;
-*/
 
+		for(int i = 0; i < newind; ++i) 
+			verts[i] = verts[index[i]];
+		*nverts = newind;
 	}
 }
 
@@ -108,9 +100,12 @@ int main() {
 	r2d_plane planes[] = {{{1,0}, -5.0}};
 	int nplanes = sizeof(planes) / sizeof(planes[0]); // number of clipping planes
 
+	//r2d_rvec2 *randpoly = init_random_poly(&nverts);
 	r2d_rvec2 *randpoly = init_random_poly(&nverts);
+	info_poly(randpoly, nverts);
 	inplace_clip_poly(randpoly, &nverts, planes, nplanes);
-	printf("%d\n", nverts);
+	info_poly(randpoly, nverts);
+
 }
 
 
