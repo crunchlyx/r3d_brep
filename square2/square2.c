@@ -16,7 +16,8 @@
 
 #define dot(va, vb) (va.x*vb.x + va.y*vb.y)
 
-void inplace_clip_poly(r2d_rvec2* verts, r2d_int *nverts, r2d_plane* planes, r2d_int nplanes) {
+void inplace_clip_poly(r2d_rvec2* verts, r2d_int *nverts,
+r2d_plane* planes, const r2d_int nplanes) {
 
 	//The likely bound is 3/2nverts; not certain.
 	r2d_real sdists[MAX_VERTS];
@@ -24,13 +25,16 @@ void inplace_clip_poly(r2d_rvec2* verts, r2d_int *nverts, r2d_plane* planes, r2d
 	
 	const r2d_real ZERO = 0.0;
 	
-	for(int p = 0; p < nplanes; ++p) {
+	for(int p = 0; p < nplanes; p++) {
+		
+		r2d_plane plane=planes[p];
+		
 		onv = *nverts;
 		newind = 0;
 		oldind = onv;
 
 		for(int v = 0; v < onv; ++v) {
-			sdists[v] = planes[p].d + dot(verts[v], planes[p].n);
+			sdists[v] = plane.d + dot(verts[v], plane.n);
 		}
 
 		for(int v = 0; v < onv; ++v) {
@@ -102,15 +106,16 @@ int main() {
 	FOR A TRIANGLE: {0,0},{1,0},{0.45,1}
 	FOR A HEXAGON: {0,0},{1,0},{2,1},{1,2},{0,2},{-1,2}
 	FOR A DODECAGON: {0,0},{1,0},{3,1},{4,3},{4,4},{3,6},{1,7},{0,7},{-2,6},{-3,4},{-3,3},{-2,1}
-	FOR A NONCONVEX SHAPE: {0,0},{1,0},{0.45,0.5},{1,1},{0,1}*/
-	r2d_plane planes[] = {{{1,0}, -5.0}, {{0,1}, -5.0}};
+	FOR A NONCONVEX SHAPE: {0,0},{1,0},{0.45,0.5},{1,1},{0,1}
+	*/
+	r2d_plane planes[] = {{{1.0,0.0}, -0.5},{{0.0,1.0}, -0.5}};
 	int nplanes = sizeof(planes) / sizeof(planes[0]); // number of clipping planes
-
+	printf("%d", nplanes);
 	r2d_rvec2 *randpoly = init_random_poly(&nverts);
+	//r2d_rvec2 randpoly[64] = {{0.0,0.0},{1.0,0.0},{1.0,1.0},{0.0,1.0}};
 	info_poly(randpoly, nverts);
 	inplace_clip_poly(randpoly, &nverts, planes, nplanes);
 	info_poly(randpoly, nverts);
-
 }
 
 
