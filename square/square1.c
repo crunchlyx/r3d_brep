@@ -4,13 +4,14 @@
 #include <stdlib.h>
 
 //The amount of times the program will be performed for timer. 
-#define REP_TIMES 10000000
+//#define REP_TIMES 10000000
 //#define REP_TIMES 1
-//#define REP_TIMES 2
+#define REP_TIMES 2
 
 //Largest random coordinate possibly generated
 #define RAND_COORD_LIMIT 10
 
+// Buffer limit
 #define MAX_VERTS 64
 #define dot(va, vb) (va.x*vb.x + va.y*vb.y)
 
@@ -181,13 +182,14 @@ int main(){
 		
 		//... then clip the poly using r2d's function
 		r2d_clip(&polygon, planes, nplanes);
-
-
+		//r2d_print(&polygon);
+	
 		// OUR INPLACE FUNCTION:
 		//clip the poly in place, using our protoype
+		info_poly(randpoly, nverts); // information about inplace poly
 		inplace_clip_poly(randpoly, &nverts, planes, nplanes);
-		//info_poly(randpoly, nverts); // information about inplace poly
-
+		info_poly(randpoly, nverts); // information about inplace poly
+		
 		//free the output memory; we do not need it for now.
 		free_poly(randpoly);
 	}

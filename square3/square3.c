@@ -4,8 +4,8 @@
 #include <stdlib.h>
 
 //The amount of times the program will be performed for timer. 
-#define REP_TIMES 10000000
-//#define REP_TIMES 1
+//#define REP_TIMES 10000000
+#define REP_TIMES 1
 //#define REP_TIMES 1
 
 //Largest random coordinate possibly generated
@@ -28,26 +28,18 @@
 //clips a poly, takes a statically allocated buffer and works in place
 void inplace_clip_poly(r2d_brep* poly, r2d_plane* planes, r2d_int nplanes) {
 
-	//large static allocation of arrays storing signed distances and kept indices
-	r2d_int index[R2D_MAX_VERTS], newind, oldind, vnext, onv;
-	const r2d_real ZERO = 0.0;
-
-	r2d_rvec2 *verts = poly->verts;
-	onv = poly->nverts;
-
-	r2d_real sdists[onv];
+	const r2d_real ZERO = 0.0;	
+	r2d_int vnext, onv, workindex, newindex;
 	
 	//loop over each clipping plane
 	for(int p = 0; p < nplanes; p++) {
-		
-		r2d_plane plane=planes[p];
-		
-		newind = 0;
-		oldind = onv;
 
+		r2d_rvec2 *verts = poly->verts;
+		r2d_real sdists[onv];
+		onv=workindex=poly->nverts;
 		//calculate signed distances
 		for(int v = 0; v < onv; ++v) {
-			sdists[v] = plane.d + dot(verts[v], plane.n);
+			sdists[v] = (planes+p)->d + dot(verts[v], (planes+p)->n);
 		}
 
 		//loop over each vertex
@@ -55,37 +47,24 @@ void inplace_clip_poly(r2d_brep* poly, r2d_plane* planes, r2d_int nplanes) {
 
 			//note the indices of vertices that will be kept
 			if (sdists[v] >= 0){
-				index[newind++] = v;
+				verts[workindex++] = verts[v];
 			}
 			vnext = (v+1)%onv;
 			
 			//interpolate new vertex if edge crosses
 			if (sdists[v] * sdists[vnext] < ZERO) {
 				r2d_real alpha = sdists[vnext] / (sdists[vnext] - sdists[v]);
-				r2d_rvec2 newvert;
-				newvert.x = alpha*verts[v].x + (1-alpha)*verts[vnext].x;
-				newvert.y = alpha*verts[v].y + (1-alpha)*verts[vnext].y;
-				verts[oldind] = newvert;
-				index[newind++] = oldind;
-				oldind++;
+				verts[workindex].x = alpha*verts[v].x + (1-alpha)*verts[vnext].x;
+				verts[workindex].y = alpha*verts[v].y + (1-alpha)*verts[vnext].y;
+				workindex++;
 			}	
 		}
-		//stuff below is valid, don't delete please
-		r2d_rvec2 dum[R2D_MAX_VERTS];
-		//vertices with indices noted in index[] are correct, transfer to buffer
-		for(int i = 0; i < newind; ++i) {
-			//printf("%d %d\n",i, index[i]);
-			dum[i] = verts[index[i]];
-			//printf("%f %f\n", verts[i].x,verts[i].y);
-		}
 
-		for(int i = 0; i < newind; ++i) {
-			//printf("%d %d\n",i, index[i]);
-			verts[i] = dum[i];
-			//printf("%f %f\n", verts[i].x,verts[i].y);
+		newindex=0;
+		for(int i = onv; i < workindex; ++i) {
+			verts[newindex++] = verts[i];
 		}
-
-		poly->nverts = newind;
+		poly->nverts = workindex-onv;
 	}
 }
 
@@ -106,8 +85,7 @@ void init_random_poly(r2d_rvec2* verts, r2d_int* nverts) {
 	}
 }
 
-//diagnostic information, printing coordinate information of the random polygon 
-void info_poly(r2d_brep* poly) { 
+void info_poly2(r2d_brep* poly) { 
 	printf("\n______________________________________________\n");
 	
 	r2d_rvec2* verts = poly->verts;
@@ -119,12 +97,13 @@ void info_poly(r2d_brep* poly) {
 	printf("Vertex coordinates:\n");
 	for (int i = 0; i < nverts; ++i) {
 		r2d_rvec2 printvert = verts[i];
-		printf("Vertex %d - ", i);
-		printf("X: %f ", printvert.x);
-		printf("Y: %f\n", printvert.y);
+
+		printf("%f ", printvert.x);
+		printf("%f\n", printvert.y);
 	}
 	printf("______________________________________________\n");
 }
+
 
 int main(){
 
@@ -133,7 +112,7 @@ int main(){
 	srand(time(0));
 	r2d_rvec2 randverts[R2D_MAX_VERTS];
 	// the intersection planes
-	r2d_plane planes[] = {{{1,0}, -5.0}};
+	r2d_plane planes[] = {{{1,0}, -5.0}, {{0,1}, -5.0}};
 	int nplanes = sizeof(planes) / sizeof(planes[0]); // number of clipping planes
 	// simple timer loop	
 	clock_t start3 = clock();
@@ -145,27 +124,25 @@ int main(){
 
 		// R2D:
 		// initialize necessary outputs, convert from Brep to r2d's internal representation...
-		/*r2d_poly polygon;
+		r2d_poly polygon;
 		r2d_init_poly(&polygon, randverts, nverts); 
-		//r2d_print(&polygon);
+		r2d_print(&polygon);
 		//... then clip the poly using r2d's function
-		r2d_clip(&polygon, planes, nplanes);*/
-		//r2d_print(&polygon);
+		r2d_clip(&polygon, planes, nplanes);
+		printf("\n");		
+		r2d_print(&polygon);
 	
-		// OUR INPLACE FUNCTION:
-		//printf("IN ");
-
-		//clip the poly in place, using our protoype
 		r2d_brep polybrep;
 		polybrep.verts = randverts;
 		polybrep.nverts = nverts;
-		//info_poly(&polybrep);
+		/*
 		inplace_clip_poly(&polybrep, planes, nplanes);
 		//printf("OUT ");
-		//info_poly(&polybrep); // information about inplace poly
-		
-		//free the output memory; we do not need it for now.
-		//free_poly(&polybrep);
+		info_poly2(&polybrep); */
+
+		r2d_print_brep(&polybrep);
+		r2d_clip_brep(&polybrep, planes, nplanes);
+		r2d_print_brep(&polybrep);
 
 	}
 	clock_t stop3 = clock();
