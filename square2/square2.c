@@ -17,16 +17,11 @@
 
 //free allocated memory
 /*void free_poly(r2d_brep* poly) {
-	r2d_int v;
-	for(v = 0; v < poly->nverts; ++v) {
-		free(poly->verts);
-	}
-	free(poly->nverts);
-	free(poly);
+	free(poly->verts);
 }*/
 
-//clips a poly, takes a statically allocated buffer and works in place
-void inplace_clip_poly(r2d_brep* poly, r2d_plane* planes, r2d_int nplanes) {
+//index version
+void inplace_clip_poly_copy(r2d_brep* poly, r2d_plane* planes, r2d_int nplanes) {
 
 	//large static allocation of arrays storing signed distances and kept indices
 	r2d_int index[R2D_MAX_VERTS], newind, oldind, vnext, onv;
@@ -88,7 +83,6 @@ void inplace_clip_poly(r2d_brep* poly, r2d_plane* planes, r2d_int nplanes) {
 		poly->nverts = newind;
 	}
 }
-
 //generate a random poly in a buffer of the right size, for use by clip_poly and r2d_clip
 void init_random_poly(r2d_rvec2* verts, r2d_int* nverts) {
 

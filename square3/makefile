@@ -1,4 +1,3 @@
-
 output: square3.o
 	gcc -o square3 square3.o -L../../. -lr3d -lm 
 
