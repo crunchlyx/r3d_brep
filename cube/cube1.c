@@ -55,8 +55,8 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 		r3d_int** newfaceinds = newpoly->faceinds;
 		
 		r3d_int oldv2newv[R3D_MAX_VERTS];
-		r3d_int olde2newv[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE]={0}; // CHANGE TO MAX VERTS PER FACE, ALSO CHECK THAT A 2D ARRAY INITIALIZED CORRECTLY
-		r3d_int vnext, nextavail, indcur, indnext;
+		r3d_int olde2newv[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE]={0};
+		r3d_int vnext, nextavail, indcur, indnext, newindcur, firstnewvertsind, curnewvertsind, facind, verind, verindnext;
 
 		for(int v = 0; v < nverts; ++v) {
 			sdists[v] = planes[p].d + dot(verts[v], planes[p].n);
@@ -66,6 +66,8 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 				newnverts++; 
 			}
 		}
+		
+		firstnewvertsind = newnverts;
 
 		if (newnverts == 0) {
 			return newpoly;
@@ -73,7 +75,7 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 	
 		r3d_int degreecounter[R3D_MAX_VERTS]={0}; // we may only need this to nverts
 		edgeind edges[R3D_MAX_VERTS][R3D_MAX_DEGREE];
-		//edgeind inverse_edges[nfaces][R3D_MAX_VERTS]; // find something better than MAX_VERTS
+		edgeind newv2olde[R3D_MAX_VERTS]; // ???
 
 		// generate n-skeleton structure
 		for(int f = 0; f < nfaces; ++f) {
@@ -103,7 +105,7 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 				vnext = v==nvertsperface[f]-1 ? 0 : v+1;
 				indnext = faceinds[f][vnext];
 
-				//p  this edge crosses
+				//  this edge crosses, and we have not see it before
 				if ((olde2newv[f][v] == 0) && (sdists[indcur] * sdists[indnext]) < ZERO){
 
 						r3d_real alpha = sdists[indnext] / (sdists[indnext] - sdists[indcur]);
@@ -115,7 +117,7 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 						olde2newv[f][v]= newnverts;
 
 						// calculate the opposite edge on the fly
-						r3d_int _f, _v ;
+						r3d_int _f, _v;
 						for(int e = 0; e < degreecounter[indnext]; ++e) {
 							edgeind i = edges[indnext][e];
 							if(faceinds[i.faceind][i.vertind==nvertsperface[f]-1?0: i.vertind+1] == indcur ) {
@@ -126,6 +128,8 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 						}
 						// map the newly created vertex on both this edge and the inverse edge
 						olde2newv[f][v] = olde2newv[_f][_v] = newnverts;
+						newv2olde[newnverts].faceind = f;
+						newv2olde[newnverts].vertind = v;
 					
 						// bump the new vertex counter
 						newnverts++;				
@@ -149,6 +153,25 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 			}
 		}
 
+		nextavail = 0;
+		curnewvertsind = firstnewvertsind + 1;
+		newfaceinds[newnfaces][nextavail++] = firstnewvertsind;
+		newnvertsperface[newnfaces]++;
+		facind = newv2olde[curnewvertsind].faceind;
+		verind = newv2olde[curnewvertsind].vertind;	
+	
+		while(curnewvertsind != firstnewvertsind) {
+			verindnext = verind == nvertsperface[facind]-1 ? 0 : verind+1; 
+
+			while (olde2newv[facind][verind] == 0) {
+				verind = verindnext;
+			}
+			newfaceinds[newnfaces][nextavail++] = olde2newv[facind][verind];
+			newnvertsperface[newnfaces]++;
+
+			// find inverse, update so curnewvertsind is on inverse edge traversing different face
+			curnewvertsind = olde2newv[facind][verind];
+		}
 	}
 }
 
