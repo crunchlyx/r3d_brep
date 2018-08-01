@@ -56,7 +56,7 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 		
 		r3d_int oldv2newv[R3D_MAX_VERTS];
 		r3d_int olde2newv[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE]={0};
-		r3d_int vnext, nextavail, indcur, indnext, newindcur, firstnewvertsind, curnewvertsind, facind, verind, verindnext;
+		r3d_int vnext, nextavail, indcur, indnext, firstnewvertsind, facind, verind, verindnext;
 
 		for(int v = 0; v < nverts; ++v) {
 			sdists[v] = planes[p].d + dot(verts[v], planes[p].n);
@@ -128,8 +128,14 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 						}
 						// map the newly created vertex on both this edge and the inverse edge
 						olde2newv[f][v] = olde2newv[_f][_v] = newnverts;
-						newv2olde[newnverts].faceind = f;
-						newv2olde[newnverts].vertind = v;
+
+						if( sdists[indcur]){
+							newv2olde[newnverts].faceind = _f;
+							newv2olde[newnverts].vertind = _v;
+						} else {
+							newv2olde[newnverts].faceind = f;
+							newv2olde[newnverts].vertind = v;
+						}
 					
 						// bump the new vertex counter
 						newnverts++;				
@@ -153,42 +159,54 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 			}
 		}
 
-		nextavail = 0;
-		edgeind x = newv2olde[firstnewvertsind];
-		facind = x.faceind;
-		verind = x.vertind==nvertsperface[facind]-1? 0:x.vertind+1;	
-		curnewvertsind = faceinds[facind][verind];
-		newfaceinds[newnfaces][nextavail++] = firstnewvertsind;
-		newnvertsperface[newnfaces]++;
-		//verindnext = verind == nvertsperface[facind]-1 ? 0 : verind+1;
+		r3d_int marked[R3D_MAX_VERTS] = {0};
 
-		// advance the crossing vertex
-		do {
-			verindnext = verind == nvertsperface[facind]-1 ? 0 : verind+1; 
+		for(int v = firstnewvertsind; v<newnverts; ++v){
 
-			// advance the index in the face until another cross
-			if (olde2newv[facind][verind] == 0) {
-				verind = verindnext;
-				verindnext = verind == nvertsperface[facind]-1 ? 0 : verind+1;
-				continue;
-			}
+			if (marked[v]) continue;
 
+			nextavail = 0;
+			edgeind x = newv2olde[v];
+			facind = x.faceind;
+			verind = x.vertind;	
+			r3d_int crossing_vertex = olde2newv[facind][verind];
 
-			// find inverse, update so curnewvertsind is on inverse edge traversing different face
-			for(int e = 0; e < degreecounter[faceinds[facind][verindnext]]; ++e) {
-				edgeind i = edges[faceinds[facind][verind]][e];
-				if(faceinds[i.faceind][i.vertind==0?nvertsperface[facind]-1: i.vertind-1] == faceinds[facind][verindnext] ) {
-					facind = i.faceind;
-					verind = i.vertind;
-					break;
+			do  {
+				
+				// if edge crosses then push
+				if (crossing_vertex) {
+				
+					// push the new vertex onto the new face
+					newfaceinds[newnfaces][nextavail++] = crossing_vertex;
+					newnvertsperface[newnfaces]++; 
+					marked[crossing_vertex] = 1;
+
+					// advance the index in the old face 
+					verindnext = verind == nvertsperface[facind]-1 ? 0 : verind+1; 
+
+					// find the inverse edge
+					for(int e = 0; e < degreecounter[faceinds[facind][verindnext]]; ++e) {
+						edgeind i = edges[faceinds[facind][verind]][e];
+						if(faceinds[i.faceind][i.vertind==0?nvertsperface[facind]-1: i.vertind-1] == faceinds[facind][verindnext] ) {
+							facind = i.faceind;
+							verind = i.vertind;
+							break;
+						}
+					}
+
 				}
-			}
-			curnewvertsind = olde2newv[facind][verind == 0?nvertsperface[facind]-1: verind-1];
-			newfaceinds[newnfaces][nextavail++] = curnewvertsind;
-			newnvertsperface[newnfaces]++; 
-		} while(curnewvertsind!= firstnewvertsind);
-		newnfaces++;
-	}
+
+				// advance the edge (potentially in the new face)
+				verind = verind == nvertsperface[facind]-1 ? 0 : verind+1; 			
+
+				// cache the edge to crossing index if it exists
+				crossing_vertex = olde2newv[facind][verind];
+
+			
+			} while (crossing_vertex!=v);
+			newnfaces++;
+		}
+	}			
 }
 
 int main() {
