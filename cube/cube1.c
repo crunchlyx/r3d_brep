@@ -8,6 +8,10 @@
 #define R3D_MAX_DEGREE 3
 #define REP_TIMES 1
 #define R3D_MAX_VERTS_PER_FACE 4
+#define RAND_COORD_LIMIT 1
+#define MOMENT_TOLERANCE 1.0e-15
+#define MOMENT 1
+#define MOMENT_ARRAY_SIZE 4
 
 // mostly for convenience, really
 typedef struct {
@@ -15,14 +19,41 @@ typedef struct {
 	r3d_int vertind;
 } edgeind;
 
+void random_plane_generator(r3d_plane *empty_plane) {
+	
+	r3d_int direction = (rand()%3);
+	if(direction == 0){
+		empty_plane->n.x = 1;
+		empty_plane->n.y = 0;
+		empty_plane->n.z = 0;
+	}
+	if(direction == 1){
+		empty_plane->n.x = 0;
+		empty_plane->n.y = 1;
+		empty_plane->n.z = 0;
+	}
+	if(direction == 2){
+		empty_plane->n.x = 0;
+		empty_plane->n.y = 0;
+		empty_plane->n.z = 1;
+	}
+
+
+
+	empty_plane->d = (double)rand()/(double)RAND_MAX * (-1);
+	//printf("%f\n", empty_plane.d);
+	//printf("%f, %f, %f\n\n", empty_plane.n.x, empty_plane.n.y, empty_plane.n.z);
+
+}
 
 void r3d_new_brep(r3d_brep* poly) {
+
+	r3d_rvec3* newverts = (r3d_rvec3*) malloc(R3D_MAX_VERTS * sizeof(r3d_rvec3));
 	r3d_int* newnvertsperface = (r3d_int*) malloc(R3D_MAX_VERTS * sizeof(r3d_int));
-	r3d_rvec3* newverts = (r3d_rvec3*)malloc(R3D_MAX_VERTS * sizeof(r3d_rvec3));
 	r3d_int** newfaceinds = (r3d_int**) malloc(R3D_MAX_VERTS * sizeof(r3d_int*));
 	newfaceinds[0] = (r3d_int*) malloc(sizeof(r3d_int) * R3D_MAX_VERTS_PER_FACE * R3D_MAX_VERTS);
-	for(int i = 0; i < R3D_MAX_VERTS; ++i) {
-		newfaceinds[i] = (*newfaceinds + R3D_MAX_VERTS * i);
+	//for(int i = 0; i < R3D_MAX_VERTS; ++i) {
+		//newfaceinds[i] = (*newfaceinds + R3D_MAX_VERTS * i);
 	}
 	r3d_int newnverts = 0;
 	r3d_int newnfaces = 0;
@@ -86,9 +117,7 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 				edges[indcur][degreecounter[indcur]].faceind = f;
 				edges[indcur][degreecounter[indcur]].vertind = v;
 				degreecounter[indcur]++;
-				printf("%d", faceinds[f][v]);
 			}
-			printf("\n");
 		}
 
 		// tragically the complete 1-skeleton must be known before we can compute an inverse edge
@@ -206,10 +235,18 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 			} while (crossing_vertex!=v);
 			newnfaces++;
 		}
-	}			
+
+	newpoly->numvertices = newnverts;
+	newpoly->vertices = newverts;
+	newpoly->numfaces = newnfaces;
+	newpoly->numvertsperface = newnvertsperface;
+	newpoly->faceinds = newfaceinds;	
+	}
+	
 }
 
 int main() {
+	srand(time(0));
 
 	r3d_int nverts = 8;
 	r3d_int nfaces = 6;
@@ -224,27 +261,51 @@ int main() {
 	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {1,1,0}, {0,1,0},
 					 				 {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1}}; 
 
-	r3d_plane planes[] = {{{1,0,0}, -0.5}};
-	r3d_int nplanes = sizeof(planes) / sizeof(planes[0]);
+	for(int x = 0; x < REP_TIMES; ++x) {
+		r3d_plane planes[] = {{{1,0,0}, -0.5}};
+		r3d_int nplanes = sizeof(planes) / sizeof(planes[0]);
+		for(int p = 0; p < nplanes; ++p) {
+			random_plane_generator(&planes[p]);
+		}
 
-	r3d_poly cube;
-	//r3d_init_poly(&cube, verts, nverts, faceinds, nvertsperface, nfaces);
-	//r3d_clip(&cube, planes, nplanes); 
-	//r3d_print(&cube);
+		r3d_poly cube, cubebrep;
+		r3d_init_poly(&cube, verts, nverts, faceinds, nvertsperface, nfaces);
+		r3d_clip(&cube, planes, nplanes); 
 
-	r3d_brep poly, newpoly;
-	poly.numvertices = nverts;
-	poly.vertices = verts;
-	poly.faceinds = faceinds;
-	poly.numvertsperface = nvertsperface;
-	poly.numfaces = nfaces;
-
-	clock_t start3 = clock();
-	for (int i = 0; i<REP_TIMES; ++i) {
+		r3d_brep poly, newpoly;
+		poly.numvertices = nverts;
+		poly.vertices = verts;
+		poly.faceinds = faceinds;
+		poly.numvertsperface = nvertsperface;
+		poly.numfaces = nfaces;
+	
 		r3d_clip_brep(&poly, &newpoly, planes, nplanes);
+
+		r3d_init_poly(&cubebrep, newpoly.vertices, newpoly.numvertices, newpoly.faceinds, newpoly.numvertsperface, newpoly.numfaces);
+
+		r3d_real r3d_moments[MOMENT_ARRAY_SIZE];
+		r3d_real brep_moments[MOMENT_ARRAY_SIZE];
+		r3d_reduce(&cube, r3d_moments, MOMENT);
+		r3d_reduce(&cubebrep, brep_moments, MOMENT);
+
+		for(int m = 0; m < MOMENT_ARRAY_SIZE; ++m) {
+			// if moments of the clipped polys differ by more than tolerance...
+			if(abs(brep_moments[m] - r3d_moments[m]) > MOMENT_TOLERANCE){
+
+				// ...then print out the calculated moments for the outputs of both
+				// r2d_clip and r2d_clip_brep
+				printf("MOMENT DIFFERENCE GREATER THAN TOLERANCE: \n");
+				printf("Component = %d\n", m);
+				printf("Brep moment = %f\n", brep_moments[m]);
+				printf("R3D moment = %f\n", r3d_moments[m]);
+			}
+		}
+		free(newpoly.vertices);
+		for (int f = 0; f < R3D_MAX_VERTS; ++f) {
+			free(newpoly.faceinds[f]);
+		}
+		free(newpoly.faceinds);
+		free(newpoly.numvertsperface);
 	}
-	clock_t stop3 = clock();
-	double elapsed3 = (double)(stop3 - start3) * 1000 / CLOCKS_PER_SEC;
-	printf("Time elapsed in ms, function: %f\n", elapsed3);
 }
 
