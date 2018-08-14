@@ -6,7 +6,7 @@
 
 #define dot(va, vb) (va.x * vb.x + va.y * vb.y + va.z * vb.z)
 #define R3D_MAX_DEGREE 4
-#define REP_TIMES 1
+#define REP_TIMES 1000000
 #define R3D_MAX_VERTS_PER_FACE 12
 #define RAND_COORD_LIMIT 1
 #define MOMENT_TOLERANCE 1.0e-15
@@ -41,8 +41,6 @@ void random_plane_generator(r3d_plane *empty_plane) {
 
 
 	empty_plane->d = (double)rand()/(double)RAND_MAX * (-1);
-	//printf("%f\n", empty_plane.d);
-	//printf("%f, %f, %f\n\n", empty_plane.n.x, empty_plane.n.y, empty_plane.n.z);
 
 }
 
@@ -87,7 +85,7 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 
 		r3d_int oldv2newv[R3D_MAX_VERTS];
 		r3d_int olde2newv[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE]={0};
-		r3d_int vnext, nextavail, indcur, indnext, firstnewvertsind, facind, verind, verindnext, firstoftheface, first_time;
+		r3d_int vnext, nextavail, indcur, indnext, firstnewvertsind, facind, verind, verindnext, crossing_vertex;
 
 		for(int v = 0; v < nverts; ++v) {
 			sdists[v] = planes[p].d + dot(verts[v], planes[p].n);
@@ -158,12 +156,12 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 						}
 						// map the newly created vertex on both this edge and the inverse edge
 						olde2newv[f][v] = olde2newv[_f][_v] = newnverts;
-						if( sdists[indcur]){
-							newv2olde[newnverts].faceind = _f;
-							newv2olde[newnverts].vertind = _v;
-						} else {
+						if( sdists[indcur] > ZERO){
 							newv2olde[newnverts].faceind = f;
 							newv2olde[newnverts].vertind = v;
+						} else {
+							newv2olde[newnverts].faceind = _f;
+							newv2olde[newnverts].vertind = _v;
 						}
 					
 						// bump the new vertex counter
@@ -192,29 +190,20 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 
 		for(int v = firstnewvertsind; v<newnverts; ++v){
 
-			firstoftheface = -1;
-			first_time = 1;
 			nextavail = 0;
 			if (marked[v]) continue;
 
-			edgeind x = newv2olde[v];
-			facind = x.faceind;
-			verind = x.vertind;	 
-			r3d_int crossing_vertex = olde2newv[facind][verind];
+			facind = newv2olde[v].faceind;
+			verind = newv2olde[v].vertind;	 
+			crossing_vertex = olde2newv[facind][verind];
 
 			do  {
 				
 				// if edge crosses then push
 				if (crossing_vertex) {
-				
-					if (first_time) {
-						firstoftheface = crossing_vertex;
-						first_time = 0;
-					}
 
 					// push the new vertex onto the new face
 					newfaceinds[newnfaces][nextavail++] = crossing_vertex;
-					newnvertsperface[newnfaces]++; 
 					marked[crossing_vertex] = 1;
 
 					// advance the index in the old face 
@@ -229,6 +218,7 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 							break;
 						}
 					}
+
 					crossing_vertex = olde2newv[facind][verind];
 					continue;
 				}
@@ -238,10 +228,9 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 
 				// cache the edge to crossing index if it exists
 				crossing_vertex = olde2newv[facind][verind];
-
 			
-			} while (crossing_vertex!=firstoftheface);
-			newnfaces++;
+			} while (crossing_vertex!=v);
+			newnvertsperface[newnfaces++] = nextavail;
 		}
 
 	newpoly->numvertices = newnverts;
@@ -250,8 +239,9 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 	newpoly->numvertsperface = newnvertsperface;
 	newpoly->faceinds = newfaceinds;	
 	}
-	
 }
+
+
 
 int main() {
 	srand(time(0));
