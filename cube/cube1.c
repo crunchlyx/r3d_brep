@@ -158,7 +158,6 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 						}
 						// map the newly created vertex on both this edge and the inverse edge
 						olde2newv[f][v] = olde2newv[_f][_v] = newnverts;
-
 						if( sdists[indcur]){
 							newv2olde[newnverts].faceind = _f;
 							newv2olde[newnverts].vertind = _v;
@@ -198,10 +197,9 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 			nextavail = 0;
 			if (marked[v]) continue;
 
-
 			edgeind x = newv2olde[v];
 			facind = x.faceind;
-			verind = x.vertind;	
+			verind = x.vertind;	 
 			r3d_int crossing_vertex = olde2newv[facind][verind];
 
 			do  {
@@ -231,7 +229,8 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 							break;
 						}
 					}
-
+					crossing_vertex = olde2newv[facind][verind];
+					continue;
 				}
 
 				// advance the edge (potentially in the new face)
