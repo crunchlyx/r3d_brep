@@ -1,4 +1,6 @@
 
+/* PURE FUNCTION IMPLEMENTATION OF R3D_CLIP */
+
 #include "r3d.h"
 #include <stdio.h>
 #include <time.h>
@@ -6,7 +8,7 @@
 
 #define dot(va, vb) (va.x * vb.x + va.y * vb.y + va.z * vb.z)
 #define R3D_MAX_DEGREE 4
-#define REP_TIMES 1000000
+#define REP_TIMES 10000000
 #define R3D_MAX_VERTS_PER_FACE 12
 #define RAND_COORD_LIMIT 1
 #define MOMENT_TOLERANCE 1.0e-15
@@ -156,10 +158,12 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 						}
 						// map the newly created vertex on both this edge and the inverse edge
 						olde2newv[f][v] = olde2newv[_f][_v] = newnverts;
-						if( sdists[indcur] > ZERO){
+						if( sdists[indcur]>ZERO){
+							// the original edge is descending
 							newv2olde[newnverts].faceind = f;
 							newv2olde[newnverts].vertind = v;
 						} else {
+							// the original edge is ascending, 
 							newv2olde[newnverts].faceind = _f;
 							newv2olde[newnverts].vertind = _v;
 						}
@@ -190,9 +194,11 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 
 		for(int v = firstnewvertsind; v<newnverts; ++v){
 
+			// this begins a new face
 			nextavail = 0;
 			if (marked[v]) continue;
 
+			// this edge is always descending and crossing by construction
 			facind = newv2olde[v].faceind;
 			verind = newv2olde[v].vertind;	 
 			crossing_vertex = olde2newv[facind][verind];
@@ -206,22 +212,19 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 					newfaceinds[newnfaces][nextavail++] = crossing_vertex;
 					marked[crossing_vertex] = 1;
 
-					// advance the index in the old face 
-					verindnext = verind == nvertsperface[facind]-1 ? 0 : verind+1; 
+					// advance the index in the old face (used to calculate inverse edge)
+					verindnext = verind == nvertsperface[facind]-1 ? 0 : verind+1; 	
 
 					// find the inverse edge
 					for(int e = 0; e < degreecounter[faceinds[facind][verindnext]]; ++e) {
-						edgeind i = edges[faceinds[facind][verind]][e];
-						if(faceinds[i.faceind][i.vertind==0?nvertsperface[facind]-1: i.vertind-1] == faceinds[facind][verindnext]) {
+						i = edges[faceinds[facind][verindnext]][e];
+						if(faceinds[i.faceind][i.vertind==nvertsperface[facind]-1 ? 0 : i.vertind+1] == faceinds[facind][verind]) {
 							facind = i.faceind;
 							verind = i.vertind;
 							break;
 						}
 					}
-
-					crossing_vertex = olde2newv[facind][verind];
-					continue;
-				}
+				} // the edge crossed
 
 				// advance the edge (potentially in the new face)
 				verind = verind == nvertsperface[facind]-1 ? 0 : verind+1; 			
@@ -230,15 +233,17 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 				crossing_vertex = olde2newv[facind][verind];
 			
 			} while (crossing_vertex!=v);
-			newnvertsperface[newnfaces++] = nextavail;
+			newnvertsperface[newnfaces++] = nextavail; 
 		}
 
-	newpoly->numvertices = newnverts;
-	newpoly->vertices = newverts;
-	newpoly->numfaces = newnfaces;
-	newpoly->numvertsperface = newnvertsperface;
-	newpoly->faceinds = newfaceinds;	
+		// DWS maintains this is redundant
+		newpoly->numvertices = newnverts;
+		newpoly->vertices = newverts;
+		newpoly->numfaces = newnfaces;
+		newpoly->numvertsperface = newnvertsperface;
+		newpoly->faceinds = newfaceinds;	
 	}
+	return newpoly;
 }
 
 
@@ -246,6 +251,7 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 int main() {
 	srand(time(0));
 
+	
 	/*r3d_int nverts = 8;
 	r3d_int nfaces = 6;
 	r3d_int nvertsperface[6] = {4,4,4,4,4,4};
@@ -290,7 +296,6 @@ int main() {
 		poly.numvertsperface = nvertsperface;
 		poly.numfaces = nfaces;
 
-
 		r3d_clip_brep(&poly, &newpoly, planes, nplanes);
 
 		/*r3d_init_poly(&cubebrep, newpoly.vertices, newpoly.numvertices, newpoly.faceinds, newpoly.numvertsperface, newpoly.numfaces);
@@ -312,12 +317,14 @@ int main() {
 				printf("R3D moment = %f\n", r3d_moments[m]);
 			}
 		}*/
+
 		free(newpoly.vertices);
 		for (int f = 0; f < R3D_MAX_VERTS; ++f) {
 			free(newpoly.faceinds[f]);
 		}
 		free(newpoly.faceinds);
 		free(newpoly.numvertsperface);
+
 	}
 }
 
