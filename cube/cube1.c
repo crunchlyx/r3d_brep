@@ -7,8 +7,8 @@
 #include <stdlib.h>
 
 #define dot(va, vb) (va.x * vb.x + va.y * vb.y + va.z * vb.z)
-#define R3D_MAX_DEGREE 4
-#define REP_TIMES 10000000
+#define R3D_MAX_DEGREE 8
+#define REP_TIMES 100000000
 #define R3D_MAX_VERTS_PER_FACE 12
 #define RAND_COORD_LIMIT 1
 #define MOMENT_TOLERANCE 1.0e-15
@@ -44,6 +44,30 @@ void random_plane_generator(r3d_plane *empty_plane) {
 
 	empty_plane->d = (double)rand()/(double)RAND_MAX * (-1);
 
+}
+
+void printer(r3d_brep* poly) {
+	r3d_int* nvertsperface = poly->numvertsperface;
+	r3d_int** faceinds = poly->faceinds;
+	r3d_rvec3* verts = poly->vertices;
+	r3d_int nverts = poly->numvertices;
+	r3d_int nfaces = poly->numfaces;
+
+	printf("\n______________________________________________\n");
+	printf("%d faces in poly, %d vertices in poly\n", nfaces, nverts);
+	for(int f = 0; f < nfaces; ++f) {
+		printf("Face %d: ", f);
+		for(int i = 0; i < nvertsperface[i]; ++i) {
+			printf("%d ", faceinds[f][i]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+	for(int v = 0; v < nverts; ++v) {
+		printf("Vertex %d: %f, %f, %f\n", v, verts[v].x, verts[v].y, verts[v].z);
+	}
+
+	printf("______________________________________________\n");
 }
 
 void r3d_new_brep(r3d_brep* poly) {
@@ -251,43 +275,36 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 int main() {
 	srand(time(0));
 
-	
-	/*r3d_int nverts = 8;
-	r3d_int nfaces = 6;
-	r3d_int nvertsperface[6] = {4,4,4,4,4,4};
+	r3d_int nverts = 16;
+	r3d_int nfaces = 12;
+	r3d_int nvertsperface[12] = {4,4,4,4,4,4,4,4,4,4,4,4};
 	r3d_int f0[4] = {0,1,5,4};
 	r3d_int f1[4] = {1,2,6,5};
 	r3d_int f2[4] = {2,3,7,6};
 	r3d_int f3[4] = {0,4,7,3};
 	r3d_int f4[4] = {0,3,2,1};
 	r3d_int f5[4] = {4,5,6,7};
-	r3d_int* faceinds[6] = {&f0, &f1, &f2, &f3, &f4, &f5};
-	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {1,1,0}, {0,1,0},
-					 				 {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1}}; */
 
-	r3d_int nverts = 9;
-	r3d_int nfaces = 9;
-	r3d_int nvertsperface[9] = {4,4,4,4,4,3,3,3,3};
-	r3d_int f0[4] = {0,1,5,4};
-	r3d_int f1[4] = {1,2,6,5};
-	r3d_int f2[4] = {2,3,7,6};
-	r3d_int f3[4] = {0,4,7,3};
-	r3d_int f4[4] = {0,3,2,1};
-	r3d_int f5[3] = {4,5,8};
-	r3d_int f6[3] = {5,6,8};
-	r3d_int f7[3] = {6,7,8};
-	r3d_int f8[3] = {4,8,7};
-	r3d_int* faceinds[9] = {&f0,&f1,&f2,&f3,&f4,&f5,&f6,&f7,&f8};
+	r3d_int f6[4] = {8,9,13,12};
+	r3d_int f7[4] = {9,10,14,13};
+	r3d_int f8[4] = {10,11,15,14};
+	r3d_int f9[4] = {8,12,15,11};
+	r3d_int f10[4] = {8,11,10,9};
+	r3d_int f11[4] = {12,13,14,15};
+
+	r3d_int* faceinds[12] = {&f0, &f1, &f2, &f3, &f4, &f5, &f6, &f7, &f8, &f9, &f10, &f11};
 	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {1,1,0}, {0,1,0},
-					 				 {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1}, {0.5,0.5,0.4}};
+					 				 {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1}, 
+									 {2,0,0}, {3,0,0}, {3,1,0}, {2,1,0},
+					 				 {2,0,1}, {3,0,1}, {3,1,1}, {2,1,1}}; 
 
 	for(int x = 0; x < REP_TIMES; ++x) {
 		r3d_plane planes[] = {{{0,0,1}, -0.5}};
 		r3d_int nplanes = sizeof(planes) / sizeof(planes[0]);
 
-		r3d_poly cube, cubebrep;
+		/*r3d_poly cube, cubebrep;
 		r3d_init_poly(&cube, verts, nverts, faceinds, nvertsperface, nfaces);
-		r3d_clip(&cube, planes, nplanes); 
+		r3d_clip(&cube, planes, nplanes); */
 
 		r3d_brep poly, newpoly;
 		poly.numvertices = nverts;
@@ -298,6 +315,7 @@ int main() {
 
 		r3d_clip_brep(&poly, &newpoly, planes, nplanes);
 
+		// printer(&newpoly);
 		/*r3d_init_poly(&cubebrep, newpoly.vertices, newpoly.numvertices, newpoly.faceinds, newpoly.numvertsperface, newpoly.numfaces);
 
 		r3d_real r3d_moments[MOMENT_ARRAY_SIZE];
