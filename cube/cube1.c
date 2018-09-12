@@ -182,7 +182,7 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 						}
 						// map the newly created vertex on both this edge and the inverse edge
 						olde2newv[f][v] = olde2newv[_f][_v] = newnverts;
-						if( sdists[indcur]>ZERO){
+						if( sdists[indcur] > ZERO){
 							// the original edge is descending
 							newv2olde[newnverts].faceind = f;
 							newv2olde[newnverts].vertind = v;
@@ -275,36 +275,33 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 int main() {
 	srand(time(0));
 
-	r3d_int nverts = 16;
-	r3d_int nfaces = 12;
-	r3d_int nvertsperface[12] = {4,4,4,4,4,4,4,4,4,4,4,4};
-	r3d_int f0[4] = {0,1,5,4};
-	r3d_int f1[4] = {1,2,6,5};
-	r3d_int f2[4] = {2,3,7,6};
-	r3d_int f3[4] = {0,4,7,3};
-	r3d_int f4[4] = {0,3,2,1};
-	r3d_int f5[4] = {4,5,6,7};
-
-	r3d_int f6[4] = {8,9,13,12};
-	r3d_int f7[4] = {9,10,14,13};
-	r3d_int f8[4] = {10,11,15,14};
-	r3d_int f9[4] = {8,12,15,11};
-	r3d_int f10[4] = {8,11,10,9};
-	r3d_int f11[4] = {12,13,14,15};
-
-	r3d_int* faceinds[12] = {&f0, &f1, &f2, &f3, &f4, &f5, &f6, &f7, &f8, &f9, &f10, &f11};
-	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {1,1,0}, {0,1,0},
-					 				 {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1}, 
-									 {2,0,0}, {3,0,0}, {3,1,0}, {2,1,0},
-					 				 {2,0,1}, {3,0,1}, {3,1,1}, {2,1,1}}; 
+	r3d_real randomz = ((double)rand() / (double)(unsigned)RAND_MAX);
+	r3d_int nverts = 4;
+	r3d_int nfaces = 4;
+	r3d_int nvertsperface[4] = {3,3,3,3};
+	r3d_int f0[3] = {0,2,1};
+	r3d_int f1[3] = {1,3,0};
+	r3d_int f2[4] = {1,2,3};
+	r3d_int f3[4] = {3,2,0};
+	r3d_int* faceinds[4] = {&f0, &f1, &f2, &f3};
+	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {0,1,0}, {0,0,randomz}}; 
+	r3d_real randomd = ((double)rand() / (double)(unsigned)RAND_MAX);
 
 	for(int x = 0; x < REP_TIMES; ++x) {
-		r3d_plane planes[] = {{{0,0,1}, -0.5}};
+		r3d_plane planes[] = {{{0,0,1}, -1*randomd}};
 		r3d_int nplanes = sizeof(planes) / sizeof(planes[0]);
+		r3d_real randomd = ((double)rand() / (double)(unsigned)RAND_MAX);
+		randomz = ((double)rand() / (double)(unsigned)RAND_MAX);
+		verts[3].z = randomz;	
 
-		/*r3d_poly cube, cubebrep;
+		r3d_poly cube, cubebrep;
 		r3d_init_poly(&cube, verts, nverts, faceinds, nvertsperface, nfaces);
-		r3d_clip(&cube, planes, nplanes); */
+		r3d_clip(&cube, planes, nplanes);
+
+
+		//CONVERT BACK TO BREP FOR PROFILING!
+
+
 
 		r3d_brep poly, newpoly;
 		poly.numvertices = nverts;
@@ -342,7 +339,7 @@ int main() {
 		}
 		free(newpoly.faceinds);
 		free(newpoly.numvertsperface);
-
+		
 	}
 }
 
