@@ -7,7 +7,7 @@ cube1: cube1.o
 	$(CC) $(TCMALLOC)
 
 cube1.o: cube1.c
-	$(CC) -c -g -std=c99 -I ../../. cube1.c
+	$(CC) -c -g -std=c99 -I ../../. cube2.c
 
 clean:
 	rm -r *.o core* cube1

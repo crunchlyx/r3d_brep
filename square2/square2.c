@@ -151,10 +151,12 @@ int main(){
 
 		//clip the poly in place, using our protoype
 		r2d_brep polybrep;
-		polybrep.verts = randverts;
+		for(int x = 0; x < nverts; ++x) {
+			polybrep.verts[x] = randverts[x];
+		}
 		polybrep.nverts = nverts;
 		//info_poly(&polybrep);
-		inplace_clip_poly(&polybrep, planes, nplanes);
+		inplace_clip_poly_copy(&polybrep, planes, nplanes);
 		//printf("OUT ");
 		//info_poly(&polybrep); // information about inplace poly
 		

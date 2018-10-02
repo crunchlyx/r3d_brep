@@ -1,50 +1,26 @@
 
-/* PURE FUNCTION IMPLEMENTATION OF R3D_CLIP */
-
 #include "r3d.h"
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
 
 #define dot(va, vb) (va.x * vb.x + va.y * vb.y + va.z * vb.z)
-#define R3D_MAX_DEGREE 8
-#define REP_TIMES 100000000
+#define R3D_MAX_DEGREE 4
+#define REP_TIMES 2
+
 #define R3D_MAX_VERTS_PER_FACE 12
-#define RAND_COORD_LIMIT 1
 #define MOMENT_TOLERANCE 1.0e-15
 #define MOMENT 0
 #define MOMENT_ARRAY_SIZE 1
+
+//not proud of this, but we may have to do it
+#define R3D_MAX_FACES 16
 
 // mostly for convenience, really
 typedef struct {
 	r3d_int faceind;
 	r3d_int vertind;
 } edgeind; 
-
-void random_plane_generator(r3d_plane *empty_plane) {
-	
-	r3d_int direction = (rand()%3);
-	if(direction == 0){
-		empty_plane->n.x = 1;
-		empty_plane->n.y = 0;
-		empty_plane->n.z = 0;
-	}
-	if(direction == 1){
-		empty_plane->n.x = 0;
-		empty_plane->n.y = 1;
-		empty_plane->n.z = 0;
-	}
-	if(direction == 2){
-		empty_plane->n.x = 0;
-		empty_plane->n.y = 0;
-		empty_plane->n.z = 1;
-	}
-
-
-
-	empty_plane->d = (double)rand()/(double)RAND_MAX * (-1);
-
-}
 
 void printer(r3d_brep* poly) {
 	r3d_int* nvertsperface = poly->numvertsperface;
@@ -70,49 +46,38 @@ void printer(r3d_brep* poly) {
 	printf("______________________________________________\n");
 }
 
-void r3d_new_brep(r3d_brep* poly) {
-
-	r3d_rvec3* newverts = (r3d_rvec3*) malloc(R3D_MAX_VERTS * sizeof(r3d_rvec3));
-	r3d_int* newnvertsperface = (r3d_int*) malloc(R3D_MAX_VERTS * sizeof(r3d_int));
-	r3d_int** newfaceinds = (r3d_int**) malloc(R3D_MAX_VERTS * sizeof(r3d_int*));
-	for(int i = 0; i < R3D_MAX_VERTS; ++i) {
-		newfaceinds[i] = (r3d_int*) malloc(sizeof(r3d_int) * R3D_MAX_VERTS_PER_FACE);
-	}
-	r3d_int newnverts = 0;
-	r3d_int newnfaces = 0;
-
-	poly->numvertsperface = newnvertsperface;
-	poly->vertices = newverts;
-	poly->faceinds = newfaceinds;
-	poly->numvertices = newnverts;
-	poly->numfaces = newnfaces;
-}
-
-r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int nplanes) {
-//void r3d_clip_brep(r3d_brep* poly, r3d_plane* planes, r3d_int nplanes){
+void r3d_clip_new(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int nplanes) {
 	
+	r3d_int** const original_faceinds = poly->faceinds;
 	const double ZERO = 0.0;
 	r3d_real sdists[R3D_MAX_VERTS];
 
-	for(int p = 0; p < nplanes; ++p) {
-		r3d_int nverts = poly->numvertices;
-		r3d_rvec3* verts = poly->vertices;
-		r3d_int nfaces = poly->numfaces;
-		r3d_int* nvertsperface = poly->numvertsperface;
-		r3d_int** faceinds = poly->faceinds;
+	r3d_int newfaceinds[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE];	
+	r3d_int faceinds[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE];	
 
-		r3d_new_brep(newpoly);
-		r3d_int newnverts = newpoly->numvertices;
-		r3d_rvec3* newverts = newpoly->vertices;
-		r3d_int newnfaces = newpoly->numfaces;
-		r3d_int* newnvertsperface = newpoly->numvertsperface;
-		r3d_int** newfaceinds = newpoly->faceinds;
-		
+	r3d_int nverts = poly->numvertices;
+	r3d_rvec3* verts = poly->vertices;
+	r3d_int nfaces = poly->numfaces;
+	r3d_int* nvertsperface = poly->numvertsperface;
+
+	for(int f = 0; f < nfaces; ++f) {
+		for(int i = 0; i < nvertsperface[f]; ++i) {
+			faceinds[f][i] = original_faceinds[f][i];
+		}
+	}
+
+	for(int p = 0; p < nplanes; ++p) {
+
+		r3d_int newnverts = 0;
+		r3d_int newnfaces = 0;
+		r3d_rvec3 newverts[R3D_MAX_VERTS];
+		r3d_int newnvertsperface[R3D_MAX_VERTS]={0};
 
 		r3d_int oldv2newv[R3D_MAX_VERTS];
 		r3d_int olde2newv[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE]={0};
 		r3d_int vnext, nextavail, indcur, indnext, firstnewvertsind, facind, verind, verindnext, crossing_vertex;
 
+		// find the surviving vertices
 		for(int v = 0; v < nverts; ++v) {
 			sdists[v] = planes[p].d + dot(verts[v], planes[p].n);
 			if (sdists[v] >= ZERO) {
@@ -122,37 +87,35 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 			}
 		}
 		
+		// prepare for adding crossing vertices
 		firstnewvertsind = newnverts;
 
+		// if everything lives on negative side of the clip plane, then bail
 		if (newnverts == 0) {
-			return newpoly;
+			return;
 		}
-	
-		r3d_int degreecounter[R3D_MAX_VERTS]={0}; // we may only need this to nverts
-		edgeind edges[R3D_MAX_VERTS][R3D_MAX_DEGREE];
-		edgeind newv2olde[R3D_MAX_VERTS]; // ???
-		edgeind i;
-		edgeind* dum;
 
-		// generate n-skeleton structure
+		// ALLOCATE THE INTEGER MATRIX FOR FINDING EDGE INVERSES
+		edgeind invedges[nverts][nverts]; 
+		edgeind newv2olde[R3D_MAX_VERTS]; // ???
+		edgeind* pe;
+
+		// actually compute the inverse edge matrix
+		// the two array indices are the old vertex id's, not the f,i pair
 		for(int f = 0; f < nfaces; ++f) {
 			for(int v = 0; v < nvertsperface[f]; ++v) {
-
-				// this block creates the one skeleton for each vertex
 				indcur = faceinds[f][v];
-				dum=&(edges[indcur][degreecounter[indcur]]);
-				dum->faceind = f;
-				dum->vertind = v;
-				degreecounter[indcur]++;
+				indnext = faceinds[f][v == nvertsperface[f]-1 ? 0 : v+1];
+
+				// reverse the indices so this gives the inverse edge, in other
+				// words, this f,i edgeinfo is assigned to the opposite edge
+				pe = &invedges[indnext][indcur];
+				pe->faceind = f;
+				pe->vertind = v;
 			}
 		}
-
-		// tragically the complete 1-skeleton must be known before we can compute an inverse edge
-		// and we need to put a newly created vertex on both an edge and its inverse edge. Because 
-		// of this we need to duplicate the loop
-		// only need to go to the second to last face (hence the -1, nfaces-1) because by the last face
-		// we have seen the all opposite edges already
-
+		
+		// find the edges that cross and create a new vertex
 		for(int f = 0; f < nfaces; ++f) {
 			nextavail = 0;
 			for(int v = 0; v < nvertsperface[f]; ++v) {
@@ -172,19 +135,14 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 						// construct edge to new vertex mapping
 						olde2newv[f][v]= newnverts;
 
-						// calculate the opposite edge on the fly
-						r3d_int _f, _v;
-						for(int e = 0; e < degreecounter[indnext]; ++e) {
-							i = edges[indnext][e];
-							if(faceinds[i.faceind][i.vertind==nvertsperface[f]-1?0: i.vertind+1] == indcur ) {
-								_f = i.faceind;
-								_v = i.vertind;
-								break;
-							}
-						}
+
+						r3d_int _f = invedges[indcur][indnext].faceind;
+						r3d_int _v = invedges[indcur][indnext].vertind;
+
 						// map the newly created vertex on both this edge and the inverse edge
+						// we always use the descending edge
 						olde2newv[f][v] = olde2newv[_f][_v] = newnverts;
-						if( sdists[indcur] > ZERO){
+						if( sdists[indcur]>ZERO){
 							// the original edge is descending
 							newv2olde[newnverts].faceind = f;
 							newv2olde[newnverts].vertind = v;
@@ -218,6 +176,8 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 
 		r3d_int marked[R3D_MAX_VERTS] = {0};
 
+		// stitch up the crossing vertices into new faces
+		// loop over all new vertices to make sure none are orphaned
 		for(int v = firstnewvertsind; v<newnverts; ++v){
 
 			// this begins a new face
@@ -230,7 +190,8 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 			crossing_vertex = olde2newv[facind][verind];
 
 			do  {
-				
+				indcur = faceinds[facind][verind];
+				indnext = faceinds[facind][verind == nvertsperface[facind]-1 ? 0 : verind+1];
 				// if edge crosses then push
 				if (crossing_vertex) {
 
@@ -241,15 +202,10 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 					// advance the index in the old face (used to calculate inverse edge)
 					verindnext = verind == nvertsperface[facind]-1 ? 0 : verind+1; 	
 
-					// find the inverse edge
-					for(int e = 0; e < degreecounter[faceinds[facind][verindnext]]; ++e) {
-						i = edges[faceinds[facind][verindnext]][e];
-						if(faceinds[i.faceind][i.vertind==nvertsperface[facind]-1 ? 0 : i.vertind+1] == faceinds[facind][verind]) {
-							facind = i.faceind;
-							verind = i.vertind;
-							break;
-						}
-					}
+					// update to the inverse edge
+					facind = invedges[indcur][indnext].faceind;
+					verind = invedges[indcur][indnext].vertind;
+
 				} // the edge crossed
 
 				// advance the edge (potentially in the new face)
@@ -262,22 +218,54 @@ r3d_brep* r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3
 			newnvertsperface[newnfaces++] = nextavail; 
 		}
 
-		// DWS maintains this is redundant
-		newpoly->numvertices = newnverts;
-		newpoly->vertices = newverts;
-		newpoly->numfaces = newnfaces;
-		newpoly->numvertsperface = newnvertsperface;
-		newpoly->faceinds = newfaceinds;	
+		// Lets get ready to do it again with another plane; update all old parameters 
+		// (may be able to save time on last plane by not doing this step.)
+		nverts = newnverts;
+		nfaces = newnfaces;	
+		for(int v = 0; v < nverts; ++v) {
+			verts[v] = newverts[v];
+		}	
+		for(int f = 0; f < nfaces; ++f) {
+			nvertsperface[f] = newnvertsperface[f];
+			for(int i = 0; i < nvertsperface[f]; ++i) {
+				faceinds[f][i] = newfaceinds[f][i];
+			}
+		}
 	}
-	return newpoly;
+
+	// FINAL STEP: We have gone through all planes. Time to pack it up
+	
+	// malloc a properly sized poly
+	r3d_rvec3* finalverts = (r3d_rvec3*) malloc(nverts * sizeof(r3d_rvec3));
+	r3d_int* finalnvertsperface = (r3d_int*) malloc(nfaces * sizeof(r3d_int));
+	r3d_int** finalfaceinds = (r3d_int**) malloc(nfaces * sizeof(r3d_int*));
+	for(int i = 0; i < R3D_MAX_VERTS; ++i) {
+		finalfaceinds[i] = (r3d_int*) malloc(sizeof(r3d_int) * nvertsperface[i]);
+	}
+
+	// copy everything
+	for(int v = 0; v < nverts; ++v) {
+		finalverts[v] = verts[v];
+	}	
+	for(int f = 0; f < nfaces; ++f) {
+		finalnvertsperface[f] = nvertsperface[f];
+		for(int i = 0; i < nvertsperface[f]; ++i) {
+			finalfaceinds[f][i] = faceinds[f][i];
+		}
+	}
+
+	// connect pointers; lets go home
+	newpoly->numvertsperface = finalnvertsperface;
+	newpoly->vertices = finalverts;
+	newpoly->faceinds = finalfaceinds;
+	newpoly->numvertices = nverts;
+	newpoly->numfaces = nfaces;
 }
-
-
 
 int main() {
 	srand(time(0));
 
-	r3d_real randomz = ((double)rand() / (double)(unsigned)RAND_MAX);
+	r3d_real askdj;
 	r3d_int nverts = 4;
 	r3d_int nfaces = 4;
 	r3d_int nvertsperface[4] = {3,3,3,3};
@@ -286,31 +274,26 @@ int main() {
 	r3d_int f2[4] = {1,2,3};
 	r3d_int f3[4] = {3,2,0};
 	r3d_int* faceinds[4] = {&f0, &f1, &f2, &f3};
-	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {0,1,0}, {0,0,randomz}}; 
-	r3d_real randomd = ((double)rand() / (double)(unsigned)RAND_MAX);
+	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {0,1,0}, {0,0,1}}; 
+
 
 	for(int x = 0; x < REP_TIMES; ++x) {
-		r3d_plane planes[] = {{{0,0,1}, -1*randomd}};
+		
+		r3d_plane planes[] = {{{0,0,1}, -0.5}, {{0,0,1}, -0.75}};
 		r3d_int nplanes = sizeof(planes) / sizeof(planes[0]);
-		r3d_real randomd = ((double)rand() / (double)(unsigned)RAND_MAX);
-		randomz = ((double)rand() / (double)(unsigned)RAND_MAX);
-		verts[3].z = randomz;	
 
 		r3d_poly cube, cubebrep;
 		r3d_init_poly(&cube, verts, nverts, faceinds, nvertsperface, nfaces);
-		r3d_clip(&cube, planes, nplanes);
-
-
-		//CONVERT BACK TO BREP FOR PROFILING!
+		r3d_clip(&cube, planes, nplanes); 
 
 		r3d_brep poly, newpoly;
 		poly.numvertices = nverts;
 		poly.vertices = verts;
-		poly.faceinds = faceinds;
 		poly.numvertsperface = nvertsperface;
 		poly.numfaces = nfaces;
+		poly.faceinds = faceinds;
+		r3d_clip_new(&poly, &newpoly, planes, nplanes);
 
-		r3d_clip_brep(&poly, &newpoly, planes, nplanes);
 
 		free(newpoly.vertices);
 		for (int f = 0; f < R3D_MAX_VERTS; ++f) {
@@ -318,7 +301,8 @@ int main() {
 		}
 		free(newpoly.faceinds);
 		free(newpoly.numvertsperface);
-		
 	}
 }
+
+
 
