@@ -6,7 +6,7 @@
 
 #define dot(va, vb) (va.x * vb.x + va.y * vb.y + va.z * vb.z)
 #define R3D_MAX_DEGREE 4
-#define REP_TIMES 2
+#define REP_TIMES 100000000
 
 #define R3D_MAX_VERTS_PER_FACE 12
 #define MOMENT_TOLERANCE 1.0e-15
@@ -54,6 +54,7 @@ void r3d_clip_new(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int 
 
 	r3d_int newfaceinds[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE];	
 	r3d_int faceinds[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE];	
+	r3d_rvec3 newverts[R3D_MAX_VERTS];
 
 	r3d_int nverts = poly->numvertices;
 	r3d_rvec3* verts = poly->vertices;
@@ -70,7 +71,7 @@ void r3d_clip_new(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int 
 
 		r3d_int newnverts = 0;
 		r3d_int newnfaces = 0;
-		r3d_rvec3 newverts[R3D_MAX_VERTS];
+
 		r3d_int newnvertsperface[R3D_MAX_VERTS]={0};
 
 		r3d_int oldv2newv[R3D_MAX_VERTS];
@@ -221,13 +222,16 @@ void r3d_clip_new(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int 
 		// Lets get ready to do it again with another plane; update all old parameters 
 		// (may be able to save time on last plane by not doing this step.)
 		nverts = newnverts;
-		nfaces = newnfaces;	
-		for(int v = 0; v < nverts; ++v) {
+		nfaces = newnfaces;
+		if(p == nplanes-1){
+			break;
+		}	
+		for(int v = 0; v < newnverts; ++v) {
 			verts[v] = newverts[v];
 		}	
-		for(int f = 0; f < nfaces; ++f) {
+		for(int f = 0; f < newnfaces; ++f) {
 			nvertsperface[f] = newnvertsperface[f];
-			for(int i = 0; i < nvertsperface[f]; ++i) {
+			for(int i = 0; i < newnvertsperface[f]; ++i) {
 				faceinds[f][i] = newfaceinds[f][i];
 			}
 		}
@@ -239,13 +243,13 @@ void r3d_clip_new(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int 
 	r3d_rvec3* finalverts = (r3d_rvec3*) malloc(nverts * sizeof(r3d_rvec3));
 	r3d_int* finalnvertsperface = (r3d_int*) malloc(nfaces * sizeof(r3d_int));
 	r3d_int** finalfaceinds = (r3d_int**) malloc(nfaces * sizeof(r3d_int*));
-	for(int i = 0; i < R3D_MAX_VERTS; ++i) {
+	for(int i = 0; i < nfaces; ++i) {
 		finalfaceinds[i] = (r3d_int*) malloc(sizeof(r3d_int) * nvertsperface[i]);
 	}
 
 	// copy everything
 	for(int v = 0; v < nverts; ++v) {
-		finalverts[v] = verts[v];
+		finalverts[v] = newverts[v];
 	}	
 	for(int f = 0; f < nfaces; ++f) {
 		finalnvertsperface[f] = nvertsperface[f];
@@ -265,18 +269,18 @@ void r3d_clip_new(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int 
 int main() {
 	srand(time(0));
 
-	r3d_real askdj;
-	r3d_int nverts = 4;
-	r3d_int nfaces = 4;
-	r3d_int nvertsperface[4] = {3,3,3,3};
-	r3d_int f0[3] = {0,2,1};
-	r3d_int f1[3] = {1,3,0};
-	r3d_int f2[4] = {1,2,3};
-	r3d_int f3[4] = {3,2,0};
-	r3d_int* faceinds[4] = {&f0, &f1, &f2, &f3};
-	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {0,1,0}, {0,0,1}}; 
-
-
+	r3d_int nverts = 8;
+	r3d_int nfaces = 6;
+	r3d_int nvertsperface[6] = {4,4,4,4,4,4};
+	r3d_int f0[4] = {0,1,5,4};
+	r3d_int f1[4] = {1,2,6,5};
+	r3d_int f2[4] = {2,3,7,6};
+	r3d_int f3[4] = {0,4,7,3};
+	r3d_int f4[4] = {0,3,2,1};
+	r3d_int f5[4] = {4,5,6,7};
+	r3d_int* faceinds[6] = {&f0, &f1, &f2, &f3, &f4, &f5};
+	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {1,1,0}, {0,1,0},
+					 				 {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1}}; 
 	for(int x = 0; x < REP_TIMES; ++x) {
 		
 		r3d_plane planes[] = {{{0,0,1}, -0.5}, {{0,0,1}, -0.75}};
@@ -294,9 +298,8 @@ int main() {
 		poly.faceinds = faceinds;
 		r3d_clip_new(&poly, &newpoly, planes, nplanes);
 
-
 		free(newpoly.vertices);
-		for (int f = 0; f < R3D_MAX_VERTS; ++f) {
+		for (int f = 0; f < newpoly.numfaces; ++f) {
 			free(newpoly.faceinds[f]);
 		}
 		free(newpoly.faceinds);
