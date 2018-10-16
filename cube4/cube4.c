@@ -1,4 +1,6 @@
 
+// A version using the up-down pairing
+
 #include "r3d.h"
 #include <stdio.h>
 #include <time.h>
@@ -6,7 +8,7 @@
 #include <stdbool.h>
 
 #define dot(va, vb) (va.x * vb.x + va.y * vb.y + va.z * vb.z)
-#define REP_TIMES 100000000
+#define REP_TIMES 1000000
 
 #define MOMENT_TOLERANCE 1.0e-15
 #define MOMENT 0
@@ -119,7 +121,7 @@ void r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int
 				bool asc = (sdists[vcur] < ZERO  && sdists[vnext] >= ZERO);
 				bool dsc = (sdists[vcur] >= ZERO && sdists[vnext] < ZERO);
 
-				//  this edge crosses and we have not seen it before
+				//  check if this edge crosses
 				if (asc || dsc) {
 
 					r3d_int crossing_vertex = olde2newv[vnext][vcur];
@@ -172,34 +174,26 @@ void r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int
 			}
 		}
 
-		r3d_int marked[R3D_MAX_VERTS] = {0};
-
 		// stitch up the crossing vertices into new faces
 		// loop over all new vertices to make sure none are orphaned
 		for(int v = firstnewvertsind; v<newnverts; ++v){
 
 			// this begins a new face
 			nextavail = 0;
-			if (marked[v]) continue;
+			if (newv2newv[v] < 0) continue;
 
-			vcur = newv2newv[v];
+			newfaceinds[newnfaces][nextavail++] = v;
+			vnext = newv2newv[v];
+			newv2newv[v] = -1;
 
-			/*do  {
+			while (vnext!=v) {
 				// push the new vertex onto the new face
-				newfaceinds[newnfaces][nextavail++] = vcur;
-				marked[crossing_vertex] = 1;
-				vcur = newv2newv[vcur];
-			
-			} while (vcur!=v);*/
-			 while (vcur!=v) {
-				// push the new vertex onto the new face
-				newfaceinds[newnfaces][nextavail++] = vcur;
-				marked[vcur] = 1;
-				vcur = newv2newv[vcur];
+				newfaceinds[newnfaces][nextavail++] = vnext;
+				vcur = vnext;
+				vnext = newv2newv[vcur];
+				newv2newv[vcur] = -1;
+
 			}
-			newfaceinds[newnfaces][nextavail++] = vcur;
-			marked[vcur] = 1;
-
 			newnvertsperface[newnfaces++] = nextavail; 
 		}
 
@@ -253,7 +247,7 @@ void r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int
 int main() {
 	srand(time(0));
 
-	__itt_pause();
+	//__itt_pause();
 
 	r3d_int nverts = 4;
 	r3d_int nfaces = 4;
@@ -267,8 +261,8 @@ int main() {
 
 	for(int x = 0; x < REP_TIMES; ++x) {
 		
-		r3d_real dist = (double)rand()/(double)RAND_MAX * (-.5);
-		r3d_plane planes[] = {{{0,0,1}, dist}};
+		//r3d_real dist = (double)rand()/(double)RAND_MAX * (-.5);
+		r3d_plane planes[] = {{{0,0,1}, -0.1}, {{0,1,0}, -0.1}, {{0,0,1}, -0.2}, {{1,1,1}, -0.1}};
 		r3d_int nplanes = sizeof(planes) / sizeof(planes[0]);
 
 		r3d_brep* r3dpolysout[2];
@@ -282,19 +276,19 @@ int main() {
 		poly2.numvertsperface = nvertsperface;
 		poly2.numfaces = nfaces;
 		poly2.faceinds = faceinds;
-		r3d_poly cube, cubebrep;
+		/*r3d_poly cube, cubebrep;
 
-		__itt_resume();
+		//__itt_resume();
 		r3d_init_poly(&cube, verts, nverts, faceinds, nvertsperface, nfaces);
 		r3d_clip(&cube, planes, nplanes); 
-		r3d_init_brep(&cube, r3dpolysout, &numcomps);
+		r3d_init_brep(&cube, r3dpolysout, &numcomps);*/
 
 
 
 		r3d_clip_brep(&poly2, &newpoly2, planes, nplanes);
-		__itt_pause();
-		//printer(&newpoly2);
-		r3d_free_brep(r3dpolysout, numcomps);
+		//__itt_pause();
+		printer(&newpoly2);
+		//r3d_free_brep(r3dpolysout, numcomps);
 		free(newpoly2.vertices);
 		for (int f = 0; f < newpoly2.numfaces; ++f) {
 			free(newpoly2.faceinds[f]);

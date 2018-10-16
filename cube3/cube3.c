@@ -1,4 +1,6 @@
 
+// A version using mappings for final stitch
+
 #include "r3d.h"
 #include <stdio.h>
 #include <time.h>
