@@ -6,19 +6,16 @@
 #include <stdbool.h>
 
 #define dot(va, vb) (va.x * vb.x + va.y * vb.y + va.z * vb.z)
-#define R3D_MAX_DEGREE 4
-#define REP_TIMES 1
+#define REP_TIMES 100000000
 
-#define R3D_MAX_VERTS_PER_FACE 12
 #define MOMENT_TOLERANCE 1.0e-15
 #define MOMENT 0
 #define MOMENT_ARRAY_SIZE 1
 
-//only for debug, when real version comes around use R3D_MAX_VERTS
-#define R3D_MINI_MAX 4
-
-//not proud of this, but we may have to do it
-#define R3D_MAX_FACES 16
+typedef struct {
+	r3d_int faceind;
+	r3d_int vertind;
+} edgeind; 
 
 void printer(r3d_brep* poly) {
 	r3d_int* nvertsperface = poly->numvertsperface;
@@ -44,14 +41,14 @@ void printer(r3d_brep* poly) {
 	printf("______________________________________________\n");
 }
 
-void r3d_clip_new(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int nplanes) {
+void r3d_clip_brep(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int nplanes) {
 	
 	r3d_int** const original_faceinds = poly->faceinds;
 	const double ZERO = 0.0;
 	r3d_real sdists[R3D_MAX_VERTS];
 
-	r3d_int newfaceinds[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE];	
-	r3d_int faceinds[R3D_MAX_VERTS][R3D_MAX_VERTS_PER_FACE];	
+	r3d_int newfaceinds[R3D_MAX_VERTS][R3D_MAX_VERTS];	
+	r3d_int faceinds[R3D_MAX_VERTS][R3D_MAX_VERTS];	
 	r3d_rvec3 newverts[R3D_MAX_VERTS];
 
 	r3d_int nverts = poly->numvertices;
@@ -256,6 +253,8 @@ void r3d_clip_new(r3d_brep* poly, r3d_brep* newpoly, r3d_plane* planes, r3d_int 
 int main() {
 	srand(time(0));
 
+	__itt_pause();
+
 	r3d_int nverts = 4;
 	r3d_int nfaces = 4;
 	r3d_int nvertsperface[4] = {3,3,3,3};
@@ -265,30 +264,44 @@ int main() {
 	r3d_int f3[4] = {3,2,0};
 	r3d_int* faceinds[4] = {&f0, &f1, &f2, &f3};
 	r3d_rvec3 verts[R3D_MAX_VERTS] = {{0,0,0}, {1,0,0}, {0,1,0}, {0,0,1}}; 
+
 	for(int x = 0; x < REP_TIMES; ++x) {
 		
-		r3d_plane planes[] = {{{0,0,1}, -0.5}};
+		r3d_real dist = (double)rand()/(double)RAND_MAX * (-.5);
+		r3d_plane planes[] = {{{0,0,1}, dist}};
 		r3d_int nplanes = sizeof(planes) / sizeof(planes[0]);
 
+		r3d_brep* r3dpolysout[2];
+		r3d_brep r3dout1, r3dout2;
+		r3dpolysout[0] = &r3dout1;
+		r3dpolysout[1] = &r3dout2;
+		r3d_int numcomps;
+		r3d_brep poly2, newpoly2;
+		poly2.numvertices = nverts;
+		poly2.vertices = verts;
+		poly2.numvertsperface = nvertsperface;
+		poly2.numfaces = nfaces;
+		poly2.faceinds = faceinds;
 		r3d_poly cube, cubebrep;
+
+		__itt_resume();
 		r3d_init_poly(&cube, verts, nverts, faceinds, nvertsperface, nfaces);
 		r3d_clip(&cube, planes, nplanes); 
+		r3d_init_brep(&cube, r3dpolysout, &numcomps);
 
-		r3d_brep poly, newpoly;
-		poly.numvertices = nverts;
-		poly.vertices = verts;
-		poly.numvertsperface = nvertsperface;
-		poly.numfaces = nfaces;
-		poly.faceinds = faceinds;
-		r3d_clip_new(&poly, &newpoly, planes, nplanes);
 
-		printer(&newpoly);
-		/*free(newpoly.vertices);
-		for (int f = 0; f < newpoly.numfaces; ++f) {
-			free(newpoly.faceinds[f]);
+
+		r3d_clip_brep(&poly2, &newpoly2, planes, nplanes);
+		__itt_pause();
+		//printer(&newpoly2);
+		r3d_free_brep(r3dpolysout, numcomps);
+		free(newpoly2.vertices);
+		for (int f = 0; f < newpoly2.numfaces; ++f) {
+			free(newpoly2.faceinds[f]);
 		}
-		free(newpoly.faceinds);
-		free(newpoly.numvertsperface);*/
+		free(newpoly2.faceinds);
+		free(newpoly2.numvertsperface);
+
 	}
 }
 
